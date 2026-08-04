@@ -2974,28 +2974,59 @@ async function openTeacherEventModal(eventId = null, defaultDateStr = null) {
     if (wholeDayField) wholeDayField.checked = false;
     if (typeField) typeField.value = 'Event';
 
+    // Auto-copy start date to end date on change if new event or empty end date
+    if (startDateField && endDateField) {
+      // Remove any existing listener to prevent stacking duplicates
+      startDateField.onchange = null;
+      startDateField.onchange = () => {
+        if (startDateField.value && (!endDateField.value || endDateField.value < startDateField.value)) {
+          endDateField.value = startDateField.value;
+        }
+      };
+    }
+
     let currentUserId = null;
     let currentUserRole = '';
     try {
       const sessionData = localStorage.getItem('hca_user_session') || sessionStorage.getItem('hca_user_session');
       if (sessionData) {
         const userObj = JSON.parse(sessionData);
-        currentUserId = userObj.id || null;
+        currentUserId = userObj.id || userObj.user_id || null;
         currentUserRole = (userObj.role || '').toLowerCase();
       }
     } catch (e) {
       console.error('Error reading session:', e);
     }
 
-    let canEdit = true;
+    if (!currentUserId && typeof currentUserProfile !== 'undefined' && currentUserProfile) {
+      currentUserId = currentUserProfile.id || currentUserProfile.user_id;
+      if (!currentUserRole) {
+        currentUserRole = (currentUserProfile.role || '').toLowerCase();
+      }
+    }
+
     const isAdminOrHead = currentUserRole === 'admin' || currentUserRole === 'department head' || currentUserRole === 'dept_head';
+    let canEdit = true;
 
     if (eventId !== null && eventId !== undefined && eventId !== '') {
       const eventsList = window.cachedEvents || [];
       const ev = eventsList.find(item => String(item.id).trim() === String(eventId).trim());
 
       if (ev) {
-        const isCreator = currentUserId && ev.creator_id && String(ev.creator_id) === String(currentUserId);
+        const eventCreatorId = ev.creator_id ? String(ev.creator_id).trim() : '';
+        const sessionUserIdStr = currentUserId ? String(currentUserId).trim() : '';
+        const isCreator = sessionUserIdStr !== '' && eventCreatorId !== '' && (eventCreatorId === sessionUserIdStr);
+
+        console.log("🔒 [TEACHER PERMISSION DEBUG]", {
+          eventId: ev.id,
+          eventTitle: ev.title,
+          eventCreatorId,
+          sessionUserIdStr,
+          currentUserRole,
+          isAdminOrHead,
+          isCreator
+        });
+
         if (!isAdminOrHead && !isCreator) {
           canEdit = false;
         }
@@ -3015,6 +3046,8 @@ async function openTeacherEventModal(eventId = null, defaultDateStr = null) {
         
         if (!ev.start_time && !ev.end_time && wholeDayField) {
           wholeDayField.checked = true;
+        } else if (wholeDayField) {
+          wholeDayField.checked = false;
         }
 
         if (deleteBtn) deleteBtn.style.display = canEdit ? 'inline-flex' : 'none';
