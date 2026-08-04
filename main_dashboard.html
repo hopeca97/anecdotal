@@ -3498,6 +3498,23 @@ function renderLearnerTableRows(learners) {
 
 
 // USER JAVASCRIPT
+// Helper function to format timestamp into Philippine Time (Asia/Manila) with MMM DD, YYYY format
+function formatToPhilippineTime(dateInput) {
+  if (!dateInput) return 'Never';
+  const dateObj = new Date(dateInput);
+  if (isNaN(dateObj.getTime())) return 'Never';
+
+  return dateObj.toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
 async function loadUsersData() {
   const { data, error } = await supabaseClient.from('hca_users').select('*, hca_sections(section_name, grade_level)');
   const tbody = document.getElementById('usersTableBody');
@@ -3569,7 +3586,7 @@ async function loadUsersData() {
         <td>${u.username}</td>
         <td>${u.role}</td>
         <td>${u.status}</td>
-        <td>${u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}</td>
+        <td>${formatToPhilippineTime(u.last_login)}</td>
         <td><button class="btn btn-primary btn-sm" onclick="openEditUserModal('${u.id}')"><i class="fas fa-edit"></i> Edit</button></td>
       </tr>
     `;
