@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ASRS Online — School Calendar (Learners)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --primary:#2563EB;--primary-dark:#1D4ED8;--primary-light:#EFF6FF;
+  --danger:#EF4444;--text:#0F172A;--text2:#475569;--text3:#94A3B8;
+  --surface:#FFFFFF;--surface2:#F8FAFC;--border:#E2E8F0;
+  --radius:12px;--radius-sm:8px;
+  --font:'Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--font);min-height:100vh;background:#0F172A;color:var(--text);
+  padding:20px;display:flex;flex-direction:column;align-items:center;
+  overflow-x: hidden;
+}
+.main-wrapper{
+  width:100%;max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:20px;box-sizing:border-box;
+}
+.top-bar{
+  display:flex;justify-content:space-between;align-items:center;background:var(--surface);
+  padding:16px 24px;border-radius:var(--radius);border:1px solid var(--border);
+  box-shadow:0 4px 6px -1px rgba(0,0,0,.1);width:100%;box-sizing:border-box;
+}
+.brand{display:flex;align-items:center;gap:12px}
+.brand img{width:40px;height:40px;object-fit:contain}
+.brand h1{font-size:1.1rem;font-weight:700;color:var(--text)}
+.btn-back{
+  padding:8px 16px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text2);font-weight:600;font-size:.85rem;
+  cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:all .2s;
+}
+.btn-back:hover{background:var(--border);color:var(--text)}
+
+/* CALENDAR STYLES */
+.calendar-container{
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 24px;
+  width: 100%;
+  box-sizing: border-box;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,.3);
+  overflow-x: hidden;
+}
+
+.calendar-header-toolbar{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.calendar-header-toolbar > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.calendar-title-container {
+  min-width: 160px;
+  text-align: left;
+}
+
+.calendar-title-container h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.calendar-nav-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn{
+  padding: 8px 16px; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer;
+  border: none; font-size: 0.9rem; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-secondary{ background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+.btn-secondary:hover{ background: var(--border); color: var(--text); }
+
+.calendar-nav-btn {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+}
+
+.calendar-grid{
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#calendarDaysGrid {
+  grid-auto-rows: 130px;
+  margin-top: 8px;
+  background-color: transparent;
+  border: none;
+  overflow: visible;
+  height: auto;
+}
+
+.calendar-day-name{
+  text-align: center;
+  font-weight: 700;
+  font-size: .85rem;
+  color: var(--text2);
+  padding: 8px 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.calendar-cell{
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 100%;
+  height: 130px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: default;
+  transition: all .2s;
+  box-sizing: border-box;
+  overflow: hidden !important;
+}
+
+.calendar-cell.other-month{
+  opacity: .35;
+}
+
+.calendar-date-number{
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.calendar-cell > div:last-child {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto !important;
+  max-height: 90px;
+  min-height: 0;
+}
+
+.calendar-event-pill{
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  font-size: 0.7rem !important;
+  padding: 3px 6px !important;
+  margin-bottom: 2px !important;
+  border-radius: 4px;
+  color: #ffffff !important;
+  cursor: pointer;
+  z-index: 5;
+  position: relative;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: filter .2s;
+}
+.calendar-event-pill:hover{ filter: brightness(1.1); }
+
+.calendar-event-pill.event-type-event { background-color: #3b82f6 !important; }
+.calendar-event-pill.event-type-holiday { background-color: #10b981 !important;}
+.calendar-event-pill.event-type-deadline { background-color: #ef4444 !important;}
+.calendar-event-pill.event-type-meeting { background-color: #8b5cf6 !important; }
+.calendar-event-pill.event-type-exam { background-color: #f59e0b !important; }
+
+/* MODAL STYLES */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(15,23,42,.7); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+  opacity: 0; pointer-events: none; transition: opacity .25s ease;
+}
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+.modal-card {
+  background: var(--surface); width: 100%; max-width: 480px; border-radius: var(--radius);
+  border: 1px solid var(--border); box-shadow: 0 20px 25px -5px rgba(0,0,0,.3);
+  padding: 24px; transform: translateY(20px); transition: transform .25s ease;
+  box-sizing: border-box;
+}
+.modal-overlay.active .modal-card { transform: translateY(0); }
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+  border-bottom: 1px solid var(--border); padding-bottom: 12px;
+}
+.modal-header h3 { font-size: 1.15rem; font-weight: 700; color: var(--text); }
+.modal-close-btn { background: none; border: none; font-size: 1.1rem; color: var(--text3); cursor: pointer; }
+.modal-close-btn:hover { color: var(--text); }
+
+.detail-group { margin-bottom: 14px; }
+.detail-label { font-size: 0.75rem; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.detail-value { font-size: 0.92rem; color: var(--text); font-weight: 500; }
+.badge-type {
+  display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; color: #fff;
+}
+</style>
+</head>
+<body>
+
+<div class="main-wrapper">
+  <div class="top-bar">
+    <div class="brand">
+      <img src="hcalogo.png" alt="Logo">
+      <h1>ASRS Online — School Calendar</h1>
+    </div>
+    <a href="index.html" class="btn-back"><i class="fas fa-arrow-left"></i> Back to Login</a>
+  </div>
+
+  <!-- CALENDAR VIEW SECTION -->
+  <div class="calendar-container">
+    <div class="calendar-header-toolbar">
+      <div>
+        <div class="calendar-title-container">
+          <h2 id="calendarMonthTitle">Month Year</h2>
+        </div>
+        <div class="calendar-nav-controls">
+          <button class="btn btn-secondary calendar-nav-btn" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+          <button class="btn btn-secondary calendar-nav-btn" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="calendar-filter-container">
+          <select id="calendarSectionFilter" class="btn btn-secondary" onchange="renderCalendarGrid()" style="padding: 8px 12px; font-size: 0.9rem; border-radius: var(--radius-sm); background: var(--surface2); color: var(--text);">
+            <option value="all">All Sections / Grades</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="calendar-grid">
+      <div class="calendar-day-name">Sun</div>
+      <div class="calendar-day-name">Mon</div>
+      <div class="calendar-day-name">Tue</div>
+      <div class="calendar-day-name">Wed</div>
+      <div class="calendar-day-name">Thu</div>
+      <div class="calendar-day-name">Fri</div>
+      <div class="calendar-day-name">Sat</div>
+    </div>
+    <div class="calendar-grid" id="calendarDaysGrid" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- VIEW EVENT MODAL -->
+<div class="modal-overlay" id="eventDetailModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="modalEventTitle">Event Title</h3>
+      <button class="modal-close-btn" onclick="closeEventModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-group">
+        <div class="detail-label">Type</div>
+        <div class="detail-value"><span id="modalEventTypeBadge" class="badge-type">Event</span></div>
+      </div>
+      <div class="detail-group">
+        <div class="detail-label">Date & Time</div>
+        <div class="detail-value" id="modalEventDateTime">--</div>
+      </div>
+      <div class="detail-group">
+        <div class="detail-label">Assigned Section / s</div>
+        <div class="detail-value" id="modalEventSections">All Sections / Grades</div>
+      </div>
+      <div class="detail-group">
+        <div class="detail-label">Teacher</div>
+        <div class="detail-value" id="modalEventCreator">System / Admin</div>
+      </div>
+      <div class="detail-group" id="modalDescWrapper" style="display:none;">
+        <div class="detail-label">Description</div>
+        <div class="detail-value" id="modalEventDescription" style="white-space: pre-wrap; font-size: 0.88rem; color: var(--text2);"></div>
+      </div>
+    </div>
+    <div style="margin-top: 20px; text-align: right;">
+      <button class="btn btn-secondary" onclick="closeEventModal()" style="min-width: 90px;">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://uhitjeeahlgwterhqfgo.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoaXRqZWVhaGxnd3RlcmhxZmdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NjA0MzgsImV4cCI6MjEwMTIzNjQzOH0.MQW5kELZubExKKU5PLx69Uc7BfxDDYf8k-jvo1aL2fI';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentCalendarDate = new Date();
+let cachedEvents = [];
+let cachedSectionsMap = {};
+
+window.addEventListener('DOMContentLoaded', async () => {
+  await fetchSectionsMap();
+  await loadCalendarEvents();
+});
+
+async function fetchSectionsMap() {
+  try {
+    const { data: sections, error } = await supabaseClient
+      .from('hca_sections')
+      .select('id, section_name, grade_level');
+
+    if (error) throw error;
+    if (sections) {
+      sections.forEach(sec => {
+        const grade = (sec.grade_level || '').trim();
+        const name = (sec.section_name || '').trim();
+        let displayName = '';
+        if (grade.toLowerCase().includes('homeschool') || name.toLowerCase().includes('homeschool')) {
+          displayName = 'Homeschool';
+        } else {
+          displayName = grade ? `Grade ${grade} - ${name}` : name;
+        }
+        cachedSectionsMap[sec.id] = displayName;
+      });
+    }
+  } catch (err) {
+    console.error('Error loading sections lookup map:', err);
+  }
+}
+
+async function populateCalendarSectionFilter() {
+  const filterSelect = document.getElementById('calendarSectionFilter');
+  if (!filterSelect) return;
+
+  try {
+    const { data: sections, error } = await supabaseClient
+      .from('hca_sections')
+      .select('id, section_name, grade_level');
+
+    if (error) throw error;
+    if (!sections || sections.length === 0) return;
+
+    const sortedSections = sections.sort((a, b) => {
+      const gradeA = (a.grade_level || '').toLowerCase().trim();
+      const gradeB = (b.grade_level || '').toLowerCase().trim();
+      const isHomeschoolA = gradeA.includes('homeschool') || a.section_name.toLowerCase().includes('homeschool');
+      const isHomeschoolB = gradeB.includes('homeschool') || b.section_name.toLowerCase().includes('homeschool');
+
+      if (isHomeschoolA && !isHomeschoolB) return 1;
+      if (!isHomeschoolA && isHomeschoolB) return -1;
+
+      const numA = parseInt(gradeA.replace(/\D/g, '')) || 99;
+      const numB = parseInt(gradeB.replace(/\D/g, '')) || 99;
+      if (numA !== numB) return numA - numB;
+      if (gradeA !== gradeB) return gradeA.localeCompare(gradeB);
+      return (a.section_name || '').localeCompare(b.section_name || '');
+    });
+
+    let optionsHtml = '<option value="all">All Sections / Grades</option>';
+    sortedSections.forEach(sec => {
+      const displayName = cachedSectionsMap[sec.id] || sec.section_name;
+      optionsHtml += `<option value="${sec.id}">${displayName}</option>`;
+    });
+
+    filterSelect.innerHTML = optionsHtml;
+  } catch (err) {
+    console.error('Error populating calendar filter:', err);
+  }
+}
+
+async function loadCalendarEvents() {
+  try {
+    const filterSelect = document.getElementById('calendarSectionFilter');
+    if (filterSelect && filterSelect.options.length <= 1) {
+      await populateCalendarSectionFilter();
+    }
+
+    const { data, error } = await supabaseClient.from('hca_calendar').select('*, hca_users(first_name, last_name, role)');
+    
+    if (error) {
+      alert("Error loading calendar: " + error.message);
+      return;
+    }
+
+    cachedEvents = data || [];
+    renderCalendarGrid();
+  } catch (err) {
+    console.error('Error in loadCalendarEvents:', err);
+  }
+}
+
+function changeMonth(direction) {
+  currentCalendarDate.setMonth(currentCalendarDate.getMonth() + direction);
+  renderCalendarGrid();
+}
+
+function formatTimeTo12Hour(timeStr) {
+  if (!timeStr) return '';
+  const [hourStr, minuteStr] = timeStr.split(':');
+  let hour = parseInt(hourStr, 10);
+  const minute = minuteStr || '00';
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  hour = hour % 12;
+  hour = hour ? 12 : hour;
+  return `${hour}:${minute} ${ampm}`;
+}
+
+function formatDateToMMM_DD_YYYY(dateStr) {
+  if (!dateStr) return '';
+  // dateStr is expected in YYYY-MM-DD
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const year = parts[0];
+  const monthIndex = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  if (monthIndex < 0 || monthIndex > 11) return dateStr;
+  
+  return `${monthNames[monthIndex]} ${day}, ${year}`;
+}
+
+function renderCalendarGrid() {
+  const year = currentCalendarDate.getFullYear();
+  const month = currentCalendarDate.getMonth();
+
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  document.getElementById('calendarMonthTitle').innerText = `${monthNames[month]} ${year}`;
+
+  const firstDayIndex = new Date(year, month, 1).getDay();
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const prevTotalDays = new Date(year, month, 0).getDate();
+
+  const filterElement = document.getElementById('calendarSectionFilter');
+  const selectedFilterSection = filterElement ? filterElement.value : 'all';
+
+  let gridHtml = '';
+  
+  for(let i = firstDayIndex - 1; i >= 0; i--) {
+    const dayNum = prevTotalDays - i;
+    gridHtml += `<div class="calendar-cell other-month"><div class="calendar-date-number">${dayNum}</div></div>`;
+  }
+
+  for(let d = 1; d <= totalDays; d++) {
+    const formattedDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    
+    const dayEvents = cachedEvents.filter(ev => {
+      const matchesDate = ev.start_date === formattedDate || (ev.start_date <= formattedDate && ev.end_date >= formattedDate);
+      if (!matchesDate) return false;
+
+      if (selectedFilterSection && selectedFilterSection !== 'all') {
+        let sectionsArr = Array.isArray(ev.affected_sections) ? ev.affected_sections : [];
+        if (sectionsArr.length > 0 && !sectionsArr.includes(selectedFilterSection)) {
+          return false;
+        }
+      }
+      return true;
+    });
+    
+    let eventsHtml = '';
+    dayEvents.forEach(ev => {
+      let pillClass = 'event-type-event';
+      const cat = (ev.category || '').toLowerCase();
+      if(cat.includes('holiday')) pillClass = 'event-type-holiday';
+      else if(cat.includes('event')) pillClass = 'event-type-event';
+      else if(cat.includes('deadline')) pillClass = 'event-type-deadline';
+      else if(cat.includes('meeting')) pillClass = 'event-type-meeting';
+      else if(cat.includes('exam')) pillClass = 'event-type-exam';
+
+      let displayTitle = ev.title;
+      if (ev.start_time) {
+          const formattedTime = formatTimeTo12Hour(ev.start_time);
+          displayTitle = `${formattedTime} - ${ev.title}`;
+      }
+
+      eventsHtml += `
+        <div class="calendar-event-pill ${pillClass}" onclick="event.stopPropagation(); openEventDetailModal('${ev.id}')">
+          <div>${displayTitle}</div>
+        </div>
+      `;
+    });
+
+    gridHtml += `
+      <div class="calendar-cell">
+        <div class="calendar-date-number">${d}</div>
+        <div>${eventsHtml}</div>
+      </div>
+    `;
+  }
+
+  const totalCellsSoFar = firstDayIndex + totalDays;
+  const remainingCells = totalCellsSoFar <= 35 ? 35 - totalCellsSoFar : 42 - totalCellsSoFar;
+  for(let d = 1; d <= remainingCells; d++) {
+    gridHtml += `<div class="calendar-cell other-month"><div class="calendar-date-number">${d}</div></div>`;
+  }
+
+  document.getElementById('calendarDaysGrid').innerHTML = gridHtml;
+}
+
+function openEventDetailModal(eventId) {
+  const ev = cachedEvents.find(item => item.id == eventId);
+  if (!ev) return;
+
+  document.getElementById('modalEventTitle').innerText = ev.title || 'Untitled Event';
+  
+  const typeBadge = document.getElementById('modalEventTypeBadge');
+  const cat = ev.category || 'Event';
+  typeBadge.innerText = cat;
+  
+  let bgCol = '#3b82f6';
+  const lowerCat = cat.toLowerCase();
+  if (lowerCat.includes('holiday')) bgCol = '#10b981';
+  else if (lowerCat.includes('deadline')) bgCol = '#ef4444';
+  else if (lowerCat.includes('meeting')) bgCol = '#8b5cf6';
+  else if (lowerCat.includes('exam')) bgCol = '#f59e0b';
+  typeBadge.style.backgroundColor = bgCol;
+
+  // Date & Time formatting using MMM DD, YYYY
+  let formattedStartDate = formatDateToMMM_DD_YYYY(ev.start_date);
+  let dateTimeStr = formattedStartDate;
+  
+  if (ev.start_time) {
+    dateTimeStr += ` | ${formatTimeTo12Hour(ev.start_time)}`;
+  }
+  
+  if (ev.end_date && ev.end_date !== ev.start_date) {
+    let formattedEndDate = formatDateToMMM_DD_YYYY(ev.end_date);
+    dateTimeStr += ` to ${formattedEndDate}`;
+    if (ev.end_time) dateTimeStr += ` ${formatTimeTo12Hour(ev.end_time)}`;
+  } else if (ev.end_time && ev.end_time !== ev.start_time) {
+    dateTimeStr += ` - ${formatTimeTo12Hour(ev.end_time)}`;
+  }
+  dateTimeStr += ' (PHT)';
+  document.getElementById('modalEventDateTime').innerText = dateTimeStr;
+
+  let sectionsArr = Array.isArray(ev.affected_sections) ? ev.affected_sections : [];
+  if (sectionsArr.length === 0) {
+    document.getElementById('modalEventSections').innerText = 'All Sections / Grades';
+  } else {
+    const names = sectionsArr.map(id => cachedSectionsMap[id] || id);
+    document.getElementById('modalEventSections').innerText = names.join(', ');
+  }
+
+  let creatorText = 'System / Admin';
+  if (ev.hca_users) {
+    const fn = ev.hca_users.first_name || '';
+    const ln = ev.hca_users.last_name || '';
+    const role = (ev.hca_users.role || '').toLowerCase();
+    const fullName = `${fn} ${ln}`.trim();
+    if (role === 'admin' || fullName.toLowerCase().includes('admin')) {
+      creatorText = fullName || 'Admin';
+    } else if (fn) {
+      creatorText = `T. ${fn}`;
+    }
+  } else if (ev.creator_name) {
+    creatorText = `T. ${ev.creator_name.trim().split(' ')[0]}`;
+  }
+  document.getElementById('modalEventCreator').innerText = creatorText;
+
+  const descWrapper = document.getElementById('modalDescWrapper');
+  const descEl = document.getElementById('modalEventDescription');
+  if (ev.description && ev.description.trim() !== '') {
+    descEl.innerText = ev.description;
+    descWrapper.style.display = 'block';
+  } else {
+    descWrapper.style.display = 'none';
+  }
+
+  document.getElementById('eventDetailModal').classList.add('active');
+}
+
+function closeEventModal() {
+  document.getElementById('eventDetailModal').classList.remove('active');
+}
+</script>
+</body>
+</html>

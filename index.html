@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ASRS Online — Login</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --primary:#2563EB;--primary-dark:#1D4ED8;--primary-light:#EFF6FF;
+  --danger:#EF4444;--text:#0F172A;--text2:#475569;--text3:#94A3B8;
+  --font:'Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--font);min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#0F172A 0%,#1E293B 50%,#0F172A 100%);
+  padding:20px;position:relative;overflow:hidden;
+}
+body::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 20% 50%,rgba(37,99,235,.15) 0%,transparent 50%),
+             radial-gradient(circle at 80% 20%,rgba(139,92,246,.15) 0%,transparent 50%);
+}
+.auth-card{
+  background:rgba(30,41,59,.95);border:1px solid rgba(255,255,255,.1);
+  border-radius:24px;padding:48px 40px;width:100%;max-width:470px;
+  box-shadow:0 25px 60px rgba(0,0,0,.6);position:relative;z-index:1;
+  backdrop-filter:blur(20px);animation:slideUp .5s ease;
+}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.auth-logo{
+  width:72px;height:72px;background:transparent;
+  border-radius:0;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;
+  box-shadow:none;overflow:hidden;padding:0;
+}
+.auth-logo img{
+  width:100%;height:100%;object-fit:contain;display:block;
+}
+.auth-title{text-align:center;margin-bottom:24px}
+.auth-title h1{font-size:1.25rem;font-weight:800;color:#F1F5F9}
+.auth-title p{font-size:.82rem;color:#64748B;margin-top:6px}
+.auth-input{
+  width:100%;padding:12px 16px;background:rgba(255,255,255,.05);
+  border:2px solid rgba(255,255,255,.1);border-radius:10px;color:#F1F5F9;
+  font-size:.92rem;outline:none;transition:all .25s;font-family:var(--font);margin-bottom:14px;
+}
+.auth-input:focus{border-color:#2563EB;background:rgba(37,99,235,.1);box-shadow:0 0 0 4px rgba(37,99,235,.2)}
+.auth-input::placeholder{color:#475569;font-size:.87rem}
+.btn-auth{
+  width:100%;padding:14px;background:linear-gradient(135deg,#2563EB,#7C3AED);
+  border:none;border-radius:10px;color:#fff;font-size:.95rem;font-weight:700;
+  cursor:pointer;transition:all .25s;letter-spacing:.5px;margin-bottom: 12px;
+}
+.btn-auth:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(37,99,235,.4)}
+.btn-auth-secondary{
+  width:100%;padding:12px;background:rgba(255,255,255,.05);
+  border:2px solid rgba(255,255,255,.1);border-radius:10px;color:#94A3B8;font-size:.9rem;font-weight:600;
+  cursor:pointer;transition:all .25s;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;
+}
+.btn-auth-secondary:hover{background:rgba(255,255,255,.1);color:#F1F5F9;border-color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+
+<div class="auth-card">
+  <div class="auth-logo"><img src="hcalogo.png" alt="Logo"></div>
+  <div class="auth-title">
+    <h1>Anecdotal Student Record System</h1>
+    <p>Sign in using your assigned system account</p>
+  </div>
+
+  <div>
+    <input type="text" id="loginUsername" class="auth-input" placeholder="Username">
+    <input type="password" id="loginPassword" class="auth-input" placeholder="Password" onkeydown="if(event.key==='Enter')handleLogin()">
+    <button class="btn-auth" onclick="handleLogin()">Sign In</button>
+    <a href="learner_calendar.html" class="btn-auth-secondary"><i class="fas fa-calendar-alt"></i> View School Calendar (Learners)</a>
+  </div>
+  <div id="authMsg" style="text-align:center;margin-top:14px;font-size:.82rem;font-weight:600;color:var(--danger)"></div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://uhitjeeahlgwterhqfgo.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoaXRqZWVhaGxnd3RlcmhxZmdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NjA0MzgsImV4cCI6MjEwMTIzNjQzOH0.MQW5kELZubExKKU5PLx69Uc7BfxDDYf8k-jvo1aL2fI';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function handleLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const msgEl = document.getElementById('authMsg');
+  msgEl.innerText = '';
+  
+  if(!username || !password) {
+    msgEl.innerText = 'Please provide username and password.';
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from('hca_users')
+    .select('*')
+    .eq('username', username)
+    .maybeSingle();
+
+  if(error) {
+    msgEl.innerText = 'Database connection error. Please try again.';
+    return;
+  }
+
+  if(!data || data.password !== password) {
+    msgEl.innerText = 'Invalid username or password.';
+    return;
+  }
+
+  if(data.status && data.status.toLowerCase() !== 'active') {
+    msgEl.innerText = 'This account has been deactivated.';
+    return;
+  }
+
+  await supabaseClient
+    .from('hca_users')
+    .update({ last_login: new Date().toISOString() })
+    .eq('id', data.id);
+
+  window.location.href = `main_dashboard.html?user_id=${encodeURIComponent(data.id)}`;
+}
+</script>
+</body>
+</html>
