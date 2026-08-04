@@ -410,13 +410,12 @@ function formatTimeTo12Hour(timeStr) {
   const minute = minuteStr || '00';
   const ampm = hour >= 12 ? 'PM' : 'AM';
   hour = hour % 12;
-  hour = hour ? 12 : hour;
+  hour = hour ? hour : 12;
   return `${hour}:${minute} ${ampm}`;
 }
 
 function formatDateToMMM_DD_YYYY(dateStr) {
   if (!dateStr) return '';
-  // dateStr is expected in YYYY-MM-DD
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
   const year = parts[0];
@@ -482,9 +481,17 @@ function renderCalendarGrid() {
           displayTitle = `${formattedTime} - ${ev.title}`;
       }
 
+      // Extract the first name of the creator and check if it's System
+      const creatorFirstName = ev.hca_users?.first_name || ev.creator_first_name || '';
+      let creatorHtml = '';
+      if (creatorFirstName && !creatorFirstName.toLowerCase().includes('system')) {
+          creatorHtml = `<span style="font-size:0.7rem; opacity:0.8; display:block;">By: T. ${creatorFirstName}</span>`;
+      }
+
       eventsHtml += `
         <div class="calendar-event-pill ${pillClass}" onclick="event.stopPropagation(); openEventDetailModal('${ev.id}')">
           <div>${displayTitle}</div>
+          ${creatorHtml}
         </div>
       `;
     });
@@ -524,7 +531,6 @@ function openEventDetailModal(eventId) {
   else if (lowerCat.includes('exam')) bgCol = '#f59e0b';
   typeBadge.style.backgroundColor = bgCol;
 
-  // Date & Time formatting using MMM DD, YYYY
   let formattedStartDate = formatDateToMMM_DD_YYYY(ev.start_date);
   let dateTimeStr = formattedStartDate;
   

@@ -821,12 +821,20 @@ th{background:var(--surface2);font-weight:700;color:var(--text2);font-size:.78re
                 <div class="calendar-filter-container">
                   <select id="calendarSectionFilter" class="form-control" onchange="renderCalendarGrid()" style="padding: 6px 12px; font-size: 0.9rem; border-radius: 6px; border: 1px solid #ccc;">
                     <option value="all">All Sections / Grades</option>
-                    <!-- Options can be dynamically populated or added manually here -->
                   </select>
                 </div>
               </div>
-              <button class="btn btn-primary" onclick="openEventModal()"><i class="fas fa-plus"></i> Add Event</button>
+              
+              <!-- Action Buttons Container -->
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <!-- Regular Add Event Button -->
+                <button class="btn btn-primary" onclick="openEventModal()"><i class="fas fa-plus"></i> Add Learner Event</button>
+                
+                <!-- NEW: Add Teacher Event Button (Visible for Admin / Department Head) -->
+                <button class="btn btn-primary" id="addTeacherEventBtn" style="background-color: #8b5cf6;" onclick="openTeacherEventModal()"><i class="fas fa-chalkboard-teacher"></i> Add Teacher Event</button>
+              </div>
             </div>
+            
             <div class="calendar-grid">
               <div class="calendar-day-name">Sun</div>
               <div class="calendar-day-name">Mon</div>
@@ -1368,7 +1376,6 @@ th{background:var(--surface2);font-weight:700;color:var(--text2);font-size:.78re
           <option value="Holiday/No Class" class="cat-admin-only">Holiday/No Class</option>
           <option value="Event" class="cat-all">Event</option>
           <option value="Deadline" class="cat-all">Deadline</option>
-          <option value="Meeting" class="cat-admin-only">Meeting</option>
           <option value="Exam" class="cat-admin-only">Exam</option>
         </select>
       </div>
@@ -1419,6 +1426,74 @@ th{background:var(--surface2);font-weight:700;color:var(--text2);font-size:.78re
       <button class="btn btn-secondary" onclick="closeEventModal()">Cancel</button>
       <button class="btn btn-danger" id="eventDeleteBtn" style="display:none" onclick="deleteCalendarEvent()">Delete</button>
       <button class="btn btn-primary" id="eventSaveBtn" onclick="saveCalendarEvent()">Save Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL 7: TEACHER EVENT MODAL (For hca_tcalendar table) -->
+<div class="modal-overlay" id="teacherEventModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="teacherEventModalTitle">Add Event for Teachers</h3>
+      <button class="modal-close" onclick="closeTeacherEventModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="teacherEventIdField">
+      <div class="form-group">
+        <label class="form-label">Event Title</label>
+        <input type="text" id="teacherEventTitleField" class="form-control" placeholder="e.g. Faculty Meeting / Submission Deadline">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Type / Category</label>
+        <select id="teacherEventTypeField" class="form-control" onchange="onTeacherCategoryChange()">
+          <option value="Deadline">Deadline</option>
+          <option value="Meeting">Meeting</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="teacherWholeDayToggleGroup">
+        <label class="checkbox-item" style="font-weight:600; color:var(--text)">
+          <input type="checkbox" id="teacherEventWholeDayField" onchange="onTeacherWholeDayToggle()"> Whole Day Event
+        </label>
+      </div>
+
+      <div id="teacherStartGroupContainer">
+        <div class="datetime-grid">
+          <div class="form-group">
+            <label class="form-label">Start Date</label>
+            <input type="date" id="teacherEventStartDateField" class="form-control" onchange="onTeacherStartDateChange()">
+          </div>
+          <div class="form-group" id="teacherStartTimeWrapper">
+            <label class="form-label">Start Time</label>
+            <input type="time" id="teacherEventStartTimeField" class="form-control" onchange="onTeacherStartTimeChange()">
+          </div>
+        </div>
+      </div>
+
+      <div id="teacherEndGroupContainer">
+        <div class="datetime-grid">
+          <div class="form-group">
+            <label class="form-label" id="teacherEndDateLabel">End Date</label>
+            <input type="date" id="teacherEventEndDateField" class="form-control">
+          </div>
+          <div class="form-group" id="teacherEndTimeWrapper">
+            <label class="form-label">End Time</label>
+            <input type="time" id="teacherEventEndTimeField" class="form-control">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description / Details</label>
+        <textarea id="teacherEventDescField" class="form-control" rows="3" placeholder="Optional details..."></textarea>
+      </div>
+      <div id="modalTeacherEventMsg" style="font-size:.82rem;font-weight:600;color:var(--danger);margin-top:8px"></div>
+    </div>
+    <div class="modal-footer" id="teacherEventModalFooter">
+      <button class="btn btn-secondary" onclick="closeTeacherEventModal()">Cancel</button>
+      <button class="btn btn-danger" id="teacherEventDeleteBtn" style="display:none" onclick="deleteTeacherCalendarEvent()">Delete</button>
+      <button class="btn btn-primary" id="teacherEventSaveBtn" onclick="saveTeacherCalendarEvent()">Save Teacher Event</button>
     </div>
   </div>
 </div>
@@ -2329,6 +2404,33 @@ async function deleteGuidanceCase() {
 }
 
 // CALENDAR javascript
+function checkUserRoleForCalendar() {
+  try {
+    const sessionData = localStorage.getItem('hca_user_session') || sessionStorage.getItem('hca_user_session');
+    if (sessionData) {
+      const userObj = JSON.parse(sessionData);
+      const role = (userObj.role || '').toLowerCase();
+      
+      const teacherBtn = document.getElementById('addTeacherEventBtn');
+      if (teacherBtn) {
+        // Show only if Admin or Department Head (adjust strings to match your DB roles)
+        if (role === 'admin' || role === 'department head' || role === 'dept_head') {
+          teacherBtn.style.display = 'inline-flex';
+        } else {
+          teacherBtn.style.display = 'none';
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error checking user role visibility:', err);
+  }
+}
+
+// Call this function on window load or after user data is initialized
+window.addEventListener('DOMContentLoaded', () => {
+  checkUserRoleForCalendar();
+});
+
 async function populateCalendarSectionFilter() {
   const filterSelect = document.getElementById('calendarSectionFilter');
   if (!filterSelect) return;
@@ -2393,24 +2495,41 @@ async function populateCalendarSectionFilter() {
   }
 }
 
-// Call populateCalendarSectionFilter when loading calendar events or initializing the page
 async function loadCalendarEvents() {
   try {
-    // Populate the filter dropdown if not already populated
     const filterSelect = document.getElementById('calendarSectionFilter');
     if (filterSelect && filterSelect.options.length <= 1) {
       await populateCalendarSectionFilter();
     }
 
-    const { data, error } = await supabaseClient.from('hca_calendar').select('*');
-    
-    if (error) {
-      alert("Error loading calendar: " + error.message);
-      return;
+    // 1. Fetch main calendar events
+    const { data: mainEvents, error: mainError } = await supabaseClient
+      .from('hca_calendar')
+      .select('*, hca_users(first_name, last_name, role)');
+      
+    if (mainError) {
+      console.error("Error loading main calendar:", mainError.message);
     }
 
-    // Fallback assignment
-    cachedEvents = data || [];
+    let combinedEvents = mainEvents || [];
+
+    // 2. Fetch teacher calendar events from 'hca_tcalendar' for everyone directly
+    const { data: teacherEvents, error: teacherError } = await supabaseClient
+      .from('hca_tcalendar')
+      .select('*, hca_users!hca_tcalendar__creator_id_fkey(first_name, last_name, role)');
+      
+    if (teacherError) {
+      console.error("Error loading hca_tcalendar:", teacherError.message);
+    } else if (teacherEvents) {
+      const taggedTeacherEvents = teacherEvents.map(ev => ({
+        ...ev,
+        isTeacherEvent: true
+      }));
+      combinedEvents = combinedEvents.concat(taggedTeacherEvents);
+    }
+
+    // Cache combined events globally
+    window.cachedEvents = combinedEvents;
 
     if (typeof renderCalendarGrid === 'function') {
       renderCalendarGrid();
@@ -2421,23 +2540,7 @@ async function loadCalendarEvents() {
   }
 }
 
-function changeMonth(direction) {
-  currentCalendarDate.setMonth(currentCalendarDate.getMonth() + direction);
-  renderCalendarGrid();
-}
-
-// Helper to format time from "HH:mm" to 12-hour format (e.g., 8:00 AM)
-function formatTimeTo12Hour(timeStr) {
-    if (!timeStr) return '';
-    const [hourStr, minuteStr] = timeStr.split(':');
-    let hour = parseInt(hourStr, 10);
-    const minute = minuteStr || '00';
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    hour = hour % 12;
-    hour = hour ? hour : 12;
-    return `${hour}:${minute} ${ampm}`;
-}
-
+// Updated renderCalendarGrid function supporting both standard and teacher events
 function renderCalendarGrid() {
   const year = currentCalendarDate.getFullYear();
   const month = currentCalendarDate.getMonth(); // 0-indexed (0 = January, 6 = July, 7 = August)
@@ -2463,19 +2566,20 @@ function renderCalendarGrid() {
   for(let d = 1; d <= totalDays; d++) {
     const formattedDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     
-    const dayEvents = cachedEvents.filter(ev => {
+    const dayEvents = (window.cachedEvents || []).filter(ev => {
       const matchesDate = ev.start_date === formattedDate || (ev.start_date <= formattedDate && ev.end_date >= formattedDate);
       if (!matchesDate) return false;
 
-      // Section filtering logic
+      // Section filtering logic (Teacher events usually don't have affected_sections, so they pass or apply globally unless filtered out)
       if (selectedFilterSection && selectedFilterSection !== 'all') {
-        let sectionsArr = [];
         if (ev.affected_sections) {
-          sectionsArr = Array.isArray(ev.affected_sections) ? ev.affected_sections : [];
-        }
-        // If affected_sections is empty/null, it applies to all sections. Otherwise, check if filter matches.
-        if (sectionsArr.length > 0 && !sectionsArr.includes(selectedFilterSection)) {
-          return false;
+          let sectionsArr = Array.isArray(ev.affected_sections) ? ev.affected_sections : [];
+          if (sectionsArr.length > 0 && !sectionsArr.includes(selectedFilterSection)) {
+            return false;
+          }
+        } else if (ev.isTeacherEvent) {
+          // Decide behavior for teacher events under section filters (e.g. show on all or hide if section filtered)
+          // Keeping them visible or letting them pass through since they are faculty-wide
         }
       }
 
@@ -2498,15 +2602,23 @@ function renderCalendarGrid() {
           displayTitle = `${formattedTime} - ${ev.title}`;
       }
 
+      // Add a distinct indicator or badge for teacher events if desired
+      let badgeHtml = ev.isTeacherEvent ? `<span style="font-size:0.65rem; background:rgba(0,0,0,0.15); padding:1px 4px; border-radius:4px; margin-right:4px;">Teacher</span>` : '';
+
       // Extract the first name of the creator (handles joined table data or flat property)
       const creatorFirstName = ev.hca_users?.first_name || ev.creator_first_name || '';
-      
-      // Optional: Append creator name badge/text to the pill if available
-      let creatorHtml = creatorFirstName ? `<span style="font-size:0.7rem; opacity:0.8; display:block;">By: ${creatorFirstName}</span>` : '';
+      let creatorHtml = '';
+      if (creatorFirstName && !creatorFirstName.toLowerCase().includes('system')) {
+          creatorHtml = `<span style="font-size:0.7rem; opacity:0.8; display:block;">By: T. ${creatorFirstName}</span>`;
+      }
+      // Route click action depending on whether it's a teacher event or standard event modal
+      const clickAction = ev.isTeacherEvent 
+        ? `openTeacherEventModal('${ev.id}')` 
+        : `openEventModal('${ev.id}')`;
 
       eventsHtml += `
-        <div class="calendar-event-pill ${pillClass}" onclick="event.stopPropagation(); openEventModal('${ev.id}')">
-          <div>${displayTitle}</div>
+        <div class="calendar-event-pill ${pillClass}" onclick="event.stopPropagation(); ${clickAction}">
+          <div>${badgeHtml}${displayTitle}</div>
           ${creatorHtml}
         </div>
       `;
@@ -2527,6 +2639,23 @@ function renderCalendarGrid() {
   }
 
   document.getElementById('calendarDaysGrid').innerHTML = gridHtml;
+}
+
+function changeMonth(direction) {
+  currentCalendarDate.setMonth(currentCalendarDate.getMonth() + direction);
+  renderCalendarGrid();
+}
+
+// Helper to format time from "HH:mm" to 12-hour format (e.g., 8:00 AM)
+function formatTimeTo12Hour(timeStr) {
+    if (!timeStr) return '';
+    const [hourStr, minuteStr] = timeStr.split(':');
+    let hour = parseInt(hourStr, 10);
+    const minute = minuteStr || '00';
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12;
+    hour = hour ? hour : 12;
+    return `${hour}:${minute} ${ampm}`;
 }
 
 function openEventModalForDate(dateStr) {
@@ -2870,6 +2999,228 @@ async function deleteCalendarEvent() {
   } else {
     closeEventModal();
     loadCalendarEvents();
+  }
+}
+
+function openTeacherEventModal(eventId = null, defaultDate = null) {
+  document.getElementById('modalTeacherEventMsg').innerText = '';
+  document.getElementById('teacherEventIdField').value = '';
+  document.getElementById('teacherEventTitleField').value = '';
+  document.getElementById('teacherEventTypeField').value = 'Event';
+  document.getElementById('teacherEventWholeDayField').checked = false;
+  document.getElementById('teacherEventDescField').value = '';
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const targetDate = defaultDate || todayStr;
+
+  document.getElementById('teacherEventStartDateField').value = targetDate;
+  document.getElementById('teacherEventEndDateField').value = targetDate;
+  document.getElementById('teacherEventStartTimeField').value = '08:00';
+  document.getElementById('teacherEventEndTimeField').value = '17:00';
+
+  onTeacherCategoryChange();
+
+  if (eventId) {
+    document.getElementById('teacherEventModalTitle').innerText = 'Edit Teacher Event';
+    document.getElementById('teacherEventDeleteBtn').style.display = 'inline-block';
+    
+    // Find event from local cached array if available, or fetch
+    const ev = (window.cachedTeacherEvents || []).find(item => item.id == eventId);
+    if (ev) {
+      document.getElementById('teacherEventIdField').value = ev.id;
+      document.getElementById('teacherEventTitleField').value = ev.title || '';
+      document.getElementById('teacherEventTypeField').value = ev.category || 'Event';
+      document.getElementById('teacherEventStartDateField').value = ev.start_date || targetDate;
+      document.getElementById('teacherEventEndDateField').value = ev.end_date || targetDate;
+      document.getElementById('teacherEventStartTimeField').value = ev.start_time || '';
+      document.getElementById('teacherEventEndTimeField').value = ev.end_time || '';
+      document.getElementById('teacherEventDescField').value = ev.description || '';
+
+      if (!ev.start_time && !ev.end_time) {
+        document.getElementById('teacherEventWholeDayField').checked = true;
+      }
+      onTeacherCategoryChange();
+    }
+  } else {
+    document.getElementById('teacherEventModalTitle').innerText = 'Add Event for Teachers';
+    document.getElementById('teacherEventDeleteBtn').style.display = 'none';
+  }
+
+  document.getElementById('teacherEventModal').classList.add('active');
+}
+
+function closeTeacherEventModal() {
+  document.getElementById('teacherEventModal').classList.remove('active');
+}
+
+function onTeacherCategoryChange() {
+  const category = document.getElementById('teacherEventTypeField').value;
+  const startGroup = document.getElementById('teacherStartGroupContainer');
+  const wholeDayToggleGroup = document.getElementById('teacherWholeDayToggleGroup');
+  const endDateLabel = document.getElementById('teacherEndDateLabel');
+
+  if (category === 'Deadline') {
+    startGroup.style.display = 'none';
+    wholeDayToggleGroup.style.display = 'none';
+    endDateLabel.innerText = 'Deadline Date';
+  } else {
+    startGroup.style.display = 'block';
+    wholeDayToggleGroup.style.display = 'block';
+    endDateLabel.innerText = 'End Date';
+  }
+  onTeacherWholeDayToggle();
+}
+
+function onTeacherWholeDayToggle() {
+  const isWholeDay = document.getElementById('teacherEventWholeDayField').checked;
+  const category = document.getElementById('teacherEventTypeField').value;
+  const startTimeWrapper = document.getElementById('teacherStartTimeWrapper');
+  const endTimeWrapper = document.getElementById('teacherEndTimeWrapper');
+
+  if (isWholeDay) {
+    startTimeWrapper.style.display = 'none';
+    endTimeWrapper.style.display = 'none';
+  } else {
+    endTimeWrapper.style.display = 'block';
+    if (category !== 'Deadline') {
+      startTimeWrapper.style.display = 'block';
+    } else {
+      startTimeWrapper.style.display = 'none';
+    }
+  }
+}
+
+function onTeacherStartDateChange() {
+  const startVal = document.getElementById('teacherEventStartDateField').value;
+  const endVal = document.getElementById('teacherEventEndDateField').value;
+  if (startVal && (!endVal || endVal < startVal)) {
+    document.getElementById('teacherEventEndDateField').value = startVal;
+  }
+}
+
+function onTeacherStartTimeChange() {
+  const startVal = document.getElementById('teacherEventStartTimeField').value;
+  const endVal = document.getElementById('teacherEventEndTimeField').value;
+  const startDt = document.getElementById('teacherEventStartDateField').value;
+  const endDt = document.getElementById('teacherEventEndDateField').value;
+
+  if (startVal && startDt && startDt === endDt && (!endVal || endVal < startVal)) {
+    document.getElementById('teacherEventEndTimeField').value = startVal;
+  }
+}
+
+async function saveTeacherCalendarEvent() {
+  const msgEl = document.getElementById('modalTeacherEventMsg');
+  msgEl.innerText = '';
+
+  const idVal = document.getElementById('teacherEventIdField').value;
+  const title = document.getElementById('teacherEventTitleField').value.trim();
+  const category = document.getElementById('teacherEventTypeField').value;
+  const isWholeDay = document.getElementById('teacherEventWholeDayField').checked;
+  
+  let startDate = document.getElementById('teacherEventStartDateField').value;
+  let startTime = document.getElementById('teacherEventStartTimeField').value;
+  let endDate = document.getElementById('teacherEventEndDateField').value;
+  let endTime = document.getElementById('teacherEventEndTimeField').value;
+  const description = document.getElementById('teacherEventDescField').value.trim();
+
+  if (!title) {
+    msgEl.innerText = 'Please enter an event title.';
+    return;
+  }
+
+  if (category === 'Deadline') {
+    startDate = endDate;
+    startTime = null;
+    endTime = null;
+  } else if (isWholeDay) {
+    startTime = null;
+    endTime = null;
+  }
+
+  if (!endDate) {
+    endDate = startDate;
+  }
+
+  if (startDate && endDate && endDate < startDate) {
+    msgEl.innerText = 'End date cannot be earlier than start date.';
+    return;
+  }
+
+  // Get current user id from session if available
+  let creatorId = null;
+  try {
+    const sessionData = localStorage.getItem('hca_user_session') || sessionStorage.getItem('hca_user_session');
+    if (sessionData) {
+      const userObj = JSON.parse(sessionData);
+      creatorId = userObj.id || null;
+    }
+  } catch (e) {
+    console.error('Error reading session for creator_id:', e);
+  }
+
+  const payload = {
+    title,
+    category,
+    start_date: startDate || endDate,
+    start_time: startTime || null,
+    end_date: endDate || startDate,
+    end_time: endTime || null,
+    description: description || null,
+    creator_id: creatorId
+  };
+
+  try {
+    let response;
+    if (idVal) {
+      // Update existing
+      response = await supabaseClient
+        .from('hca_tcalendar')
+        .update(payload)
+        .eq('id', idVal);
+    } else {
+      // Insert new with random unique ID string
+      payload.id = 'te_' + Math.random().toString(36).substr(2, 9);
+      response = await supabaseClient
+        .from('hca_tcalendar')
+        .insert([payload]);
+    }
+
+    if (response.error) {
+      throw response.error;
+    }
+
+    closeTeacherEventModal();
+    if (typeof loadTeacherCalendarEvents === 'function') {
+      loadTeacherCalendarEvents();
+    }
+  } catch (err) {
+    console.error('Error saving teacher calendar event:', err);
+    msgEl.innerText = 'Error: ' + (err.message || 'Failed to save event.');
+  }
+}
+
+async function deleteTeacherCalendarEvent() {
+  const idVal = document.getElementById('teacherEventIdField').value;
+  if (!idVal) return;
+
+  if (!confirm('Are you sure you want to delete this teacher event?')) return;
+
+  try {
+    const { error } = await supabaseClient
+      .from('hca_tcalendar')
+      .delete()
+      .eq('id', idVal);
+
+    if (error) throw error;
+
+    closeTeacherEventModal();
+    if (typeof loadTeacherCalendarEvents === 'function') {
+      loadTeacherCalendarEvents();
+    }
+  } catch (err) {
+    console.error('Error deleting teacher event:', err);
+    document.getElementById('modalTeacherEventMsg').innerText = 'Error deleting: ' + err.message;
   }
 }
 
