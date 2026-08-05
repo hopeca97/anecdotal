@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>ASRS Offline — Login</title>
+<title>ASRS Online — Login</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --primary:#2563EB;--primary-dark:#1D4ED8;--primary-light:#EFF6FF;
-  --danger:#EF4444;--warning:#F59E0B;--text:#0F172A;--text2:#475569;--text3:#94A3B8;
+  --danger:#EF4444;--text:#0F172A;--text2:#475569;--text3:#94A3B8;
   --font:'Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -60,23 +60,11 @@ body::before{
   cursor:pointer;transition:all .25s;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;
 }
 .btn-auth-secondary:hover{background:rgba(255,255,255,.1);color:#F1F5F9;border-color:rgba(255,255,255,.2)}
-#offlineBannerLogin {
-  background: var(--warning);
-  color: #1E293B;
-  text-align: center;
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 8px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  display: none;
-}
 </style>
 </head>
 <body>
 
 <div class="auth-card">
-  <div id="offlineBannerLogin"><i class="fas fa-wifi-slash"></i> Offline Mode: Authenticating locally.</div>
   <div class="auth-logo"><img src="hcalogo.png" alt="Logo"></div>
   <div class="auth-title">
     <h1>Anecdotal Student Record System</h1>
@@ -97,113 +85,44 @@ const SUPABASE_URL = 'https://uhitjeeahlgwterhqfgo.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoaXRqZWVhaGxnd3RlcmhxZmdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NjA0MzgsImV4cCI6MjEwMTIzNjQzOH0.MQW5kELZubExKKU5PLx69Uc7BfxDDYf8k-jvo1aL2fI';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-let localDB = null;
-
-function initLocalDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('ASRS_OfflineDB', 2);
-    request.onerror = event => reject(event.target.error);
-    request.onsuccess = event => {
-      localDB = event.target.result;
-      resolve(localDB);
-    };
-    request.onupgradeneeded = event => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('hca_learners')) {
-        db.createObjectStore('hca_learners', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('hca_users')) {
-        db.createObjectStore('hca_users', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('sync_queue')) {
-        db.createObjectStore('sync_queue', { keyPath: 'id', autoIncrement: true });
-      }
-    };
-  });
-}
-
-window.addEventListener('DOMContentLoaded', async () => {
-  try {
-    await initLocalDB();
-  } catch (err) {
-    console.error("Failed to initialize local IndexedDB:", err);
-  }
-});
-
-async function handleLogin(event) {
-  if (event && typeof event.preventDefault === 'function') {
-    event.preventDefault();
-  }
-
-  // Updated to match your exact element IDs: loginUsername and loginPassword
-  const usernameEl = document.getElementById('loginUsername');
-  const passwordEl = document.getElementById('loginPassword');
-
-  if (!usernameEl || !passwordEl) {
-    alert("System error: Login inputs ('loginUsername' or 'loginPassword') not found.");
+async function handleLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const msgEl = document.getElementById('authMsg');
+  msgEl.innerText = '';
+  
+  if(!username || !password) {
+    msgEl.innerText = 'Please provide username and password.';
     return;
   }
 
-  const usernameInput = usernameEl.value.trim();
-  const passwordInput = passwordEl.value.trim();
+  const { data, error } = await supabaseClient
+    .from('hca_users')
+    .select('*')
+    .eq('username', username)
+    .maybeSingle();
 
-  if (!usernameInput || !passwordInput) {
-    alert("Please enter both username and password.");
+  if(error) {
+    msgEl.innerText = 'Database connection error. Please try again.';
     return;
   }
 
-  // 1. Try Online via Supabase first if connected
-  if (!navigator.onLine) {
-      // OFFLINE LOGIN: Check the cached database
-      const cachedUsers = LocalCache.get('hca_users') || [];
-      const user = cachedUsers.find(u => u.username === username && u.password === password);
-      
-      if (user) {
-          window.location.href = `dashboard.html?user_id=${user.id}`;
-      } else {
-          alert("Invalid credentials or user not found in offline database.");
-      }
-      return;
+  if(!data || data.password !== password) {
+    msgEl.innerText = 'Invalid username or password.';
+    return;
   }
 
-  // 2. Fallback to Local IndexedDB when offline
-  try {
-    if (!localDB) await initLocalDB();
-    const user = await findUserInLocalDB(usernameInput, passwordInput);
-    if (user) {
-      window.location.href = `main_dashboard.html?user_id=${user.id}`;
-    } else {
-      alert("Invalid username or password, or user data not cached for offline access.");
-    }
-  } catch (err) {
-    console.error("Local login error:", err);
-    alert("Login failed. Make sure you have signed in at least once online before using offline mode.");
+  if(data.status && data.status.toLowerCase() !== 'active') {
+    msgEl.innerText = 'This account has been deactivated.';
+    return;
   }
-}
 
-function saveUserLocally(user) {
-  return new Promise((resolve, reject) => {
-    const transaction = localDB.transaction(['hca_users'], 'readwrite');
-    const store = transaction.objectStore('hca_users');
-    store.put(user);
-    transaction.oncomplete = () => resolve(true);
-    transaction.onerror = e => reject(e.target.error);
-  });
-}
+  await supabaseClient
+    .from('hca_users')
+    .update({ last_login: new Date().toISOString() })
+    .eq('id', data.id);
 
-function findUserInLocalDB(username, password) {
-  return new Promise((resolve, reject) => {
-    const transaction = localDB.transaction(['hca_users'], 'readonly');
-    const store = transaction.objectStore('hca_users');
-    const request = store.getAll();
-
-    request.onsuccess = () => {
-      const users = request.result || [];
-      const matchedUser = users.find(u => u.username === username && u.password === password);
-      resolve(matchedUser || null);
-    };
-    request.onerror = e => reject(e.target.error);
-  });
+  window.location.href = `main_dashboard.html?user_id=${encodeURIComponent(data.id)}`;
 }
 </script>
 </body>
