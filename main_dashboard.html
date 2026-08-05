@@ -1584,6 +1584,14 @@ th{background:var(--surface2);font-weight:700;color:var(--text2);font-size:.78re
 </div>
 
 <script>
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('Service Worker registered!'))
+        .catch(err => console.log('Service Worker failed', err));
+    });
+  }
+  
 const SUPABASE_URL = 'https://uhitjeeahlgwterhqfgo.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoaXRqZWVhaGxnd3RlcmhxZmdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NjA0MzgsImV4cCI6MjEwMTIzNjQzOH0.MQW5kELZubExKKU5PLx69Uc7BfxDDYf8k-jvo1aL2fI';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -7869,14 +7877,6 @@ function handleLogout() {
 }
 
 window.addEventListener('DOMContentLoaded', initSessionFromURL);
-
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('Service Worker registered!'))
-        .catch(err => console.log('Service Worker failed', err));
-    });
-  }
 </script>
 
 </body>
