@@ -3954,104 +3954,115 @@ window.addEventListener('DOMContentLoaded', () => {
   checkUserRoleForCalendar();
 });
 
-async function populateCalendarSectionFilter() {
-  const container = document.getElementById('calendarSectionFilterContainer'); // or your select element ID
-    if (!container) return;
+// ==========================================
+// ROBUST CALENDAR SECTION FILTER REFACTOR & FIX
+// ==========================================
 
-    let sections = [];
-    
-    // Check online status first to prevent network attempts when offline
-    if (!navigator.onLine || (typeof isOnline === 'function' && !isOnline())) {
-        sections = (typeof LocalCache !== 'undefined' ? LocalCache.get('hca_sections') : null) || 
-                   JSON.parse(localStorage.getItem('hca_cached_sections') || '[]');
-    } else {
-        try {
-            const { data, error } = await supabaseClient
-                .from('hca_sections')
-                .select('id, section_name, grade_level');
-            
-            if (error) throw error;
-            sections = data || [];
-            if (typeof LocalCache !== 'undefined') LocalCache.set('hca_sections', sections);
-            localStorage.setItem('hca_cached_sections', JSON.stringify(sections));
-        } catch (err) {
-            console.warn("Network request for sections failed, falling back to cache:", err);
-            sections = (typeof LocalCache !== 'undefined' ? LocalCache.get('hca_sections') : null) || 
-                       JSON.parse(localStorage.getItem('hca_cached_sections') || '[]');
-        }
-    }
+async function populateCalendarSectionFilter() {
   const filterSelect = document.getElementById('calendarSectionFilter');
   if (!filterSelect) return;
 
-  try {
-    let sections = [];
-    
-    // Offline support check for sections
-    if (!navigator.onLine && window.localCache && window.localCache.sections) {
-      sections = window.localCache.sections;
-    } else {
-      const { data, error } = await supabaseClient
-        .from('hca_sections')
-        .select('id, section_name, grade_level');
+  let sections = window.globalFormSectionsCache || window.cachedSections || [];
 
-      if (error) {
-        console.error('Error fetching sections for filter:', error);
-        // Fallback to local storage if online fetch fails
-        sections = JSON.parse(localStorage.getItem('hca_cached_sections') || '[]');
-      } else {
-        sections = data;
+  if (sections.length === 0) {
+    if (!navigator.onLine || (typeof isOnline === 'function' && !isOnline())) {
+      try {
+        sections = (typeof LocalCache !== 'undefined' ? LocalCache.get('hca_sections') : null) || 
+                   JSON.parse(localStorage.getItem('hca_cached_sections') || localStorage.getItem('hca_sections') || '[]');
+      } catch (e) {
+        sections = [];
+      }
+    } else {
+      try {
+        const { data, error } = await supabaseClient
+          .from('hca_sections')
+          .select('id, section_name, grade_level');
+        
+        if (error) throw error;
+        sections = data || [];
+        if (typeof LocalCache !== 'undefined') LocalCache.set('hca_sections', sections);
         localStorage.setItem('hca_cached_sections', JSON.stringify(sections));
+      } catch (err) {
+        console.warn("Network request for calendar sections failed, falling back to cache:", err);
+        try {
+          sections = (typeof LocalCache !== 'undefined' ? LocalCache.get('hca_sections') : null) || 
+                     JSON.parse(localStorage.getItem('hca_cached_sections') || localStorage.getItem('hca_sections') || '[]');
+        } catch (e) {
+          sections = [];
+        }
       }
     }
-
-    if (!sections || sections.length === 0) return;
-
-    // Sort sections identically to fetchSections logic
-    const sortedSections = sections.sort((a, b) => {
-      const gradeA = (a.grade_level || '').toLowerCase().trim();
-      const gradeB = (b.grade_level || '').toLowerCase().trim();
-
-      const isHomeschoolA = gradeA.includes('homeschool') || a.section_name.toLowerCase().includes('homeschool');
-      const isHomeschoolB = gradeB.includes('homeschool') || b.section_name.toLowerCase().includes('homeschool');
-
-      if (isHomeschoolA && !isHomeschoolB) return 1;
-      if (!isHomeschoolA && isHomeschoolB) return -1;
-
-      const numA = parseInt(gradeA.replace(/\D/g, '')) || 99;
-      const numB = parseInt(gradeB.replace(/\D/g, '')) || 99;
-
-      if (numA !== numB) {
-        return numA - numB;
-      }
-
-      if (gradeA !== gradeB) {
-        return gradeA.localeCompare(gradeB);
-      }
-
-      return (a.section_name || '').localeCompare(b.section_name || '');
-    });
-
-    let optionsHtml = '<option value="all">All Sections / Grades</option>';
-    
-    sortedSections.forEach(sec => {
-      const grade = (sec.grade_level || '').trim();
-      const name = (sec.section_name || '').trim();
-      
-      let displayName = '';
-      if (grade.toLowerCase().includes('homeschool') || name.toLowerCase().includes('homeschool')) {
-        displayName = 'Homeschool';
-      } else {
-        displayName = grade ? `Grade ${grade} - ${name}` : name;
-      }
-
-      optionsHtml += `<option value="${sec.id}">${displayName}</option>`;
-    });
-
-    filterSelect.innerHTML = optionsHtml;
-  } catch (err) {
-    console.error('Error populating calendar section filter:', err);
   }
+
+  // Save back to global memory references for future calls
+  window.globalFormSectionsCache = sections;
+  window.cachedSections = sections;
+
+  if (!sections || sections.length === 0) {
+    filterSelect.innerHTML = '<option value="all">All Sections / Grades</option>';
+    return;
+  }
+
+  // Sort sections identically to standard sorting logic (Grade Level numeric order -> Alphabetical name)
+  const sortedSections = [...sections].sort((a, b) => {
+    const gradeA = (a.grade_level || '').toLowerCase().trim();
+    const gradeB = (b.grade_level || '').toLowerCase().trim();
+
+    const isHomeschoolA = gradeA.includes('homeschool') || (a.section_name && a.section_name.toLowerCase().includes('homeschool'));
+    const isHomeschoolB = gradeB.includes('homeschool') || (b.section_name && b.section_name.toLowerCase().includes('homeschool'));
+
+    if (isHomeschoolA && !isHomeschoolB) return 1;
+    if (!isHomeschoolA && isHomeschoolB) return -1;
+
+    const numA = parseInt(gradeA.replace(/\D/g, '')) || 99;
+    const numB = parseInt(gradeB.replace(/\D/g, '')) || 99;
+
+    if (numA !== numB) {
+      return numA - numB;
+    }
+
+    if (gradeA !== gradeB) {
+      return gradeA.localeCompare(gradeB);
+    }
+
+    return (a.section_name || '').localeCompare(b.section_name || '');
+  });
+
+  let optionsHtml = '<option value="all">All Sections / Grades</option>';
+  
+  sortedSections.forEach(sec => {
+    const grade = (sec.grade_level || '').trim();
+    const name = (sec.section_name || '').trim();
+    
+    let displayName = '';
+    if (grade.toLowerCase().includes('homeschool') || name.toLowerCase().includes('homeschool')) {
+      displayName = 'Homeschool';
+    } else {
+      const cleanGradeNum = grade.replace(/\D/g, '');
+      displayName = cleanGradeNum ? `Grade ${cleanGradeNum} - ${name}` : (grade ? `${grade} - ${name}` : name);
+    }
+
+    optionsHtml += `<option value="${sec.id}">${displayName}</option>`;
+  });
+
+  filterSelect.innerHTML = optionsHtml;
 }
+
+// Automatically bind and trigger on DOMContentLoaded and window load to guarantee execution
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', populateCalendarSectionFilter);
+} else {
+  populateCalendarSectionFilter();
+}
+
+window.addEventListener('load', () => {
+  const filterSelect = document.getElementById('calendarSectionFilter');
+  if (filterSelect && filterSelect.options.length <= 1) {
+    populateCalendarSectionFilter();
+  }
+});
+
+
 
 async function loadCalendarEvents() {
   try {
